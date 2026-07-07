@@ -797,7 +797,7 @@ function closePanel(){
 
 /* ═══════════ 팀원 선택 (드래프트) ═══════════ */
 const TEAM_COLORS = ['#FF6B5E','#5B9BFF','#57C785','#F5B841','#B78CFF','#FF8FB1','#4ECDC4','#C9D64F'];
-let draft = { teamCount:0, leaders:[], pickedBy:{}, order:[], turn:0, phase:'setup', revealed:new Set(), viewTeam:null };
+let draft = { teamCount:0, leaders:[], pickedBy:{}, order:[], turn:0, phase:'setup', revealed:new Set(), viewTeam:null, revealUnlocked:false };
 
 function renderDraftSetup(){
   const cs = document.getElementById('countSelect');
@@ -832,7 +832,7 @@ function startDraft(){
   lock.on = true; updateLockBtn();
   renderIndividual(document.getElementById('searchInput').value); renderGroupTab();
   renderScatter(document.getElementById('scatterOverview'), students, {showNo:true});
-  draft.phase='draft'; draft.pickedBy={}; draft.turn=0; draft.revealed=new Set();
+  draft.phase='draft'; draft.pickedBy={}; draft.turn=0; draft.revealed=new Set(); draft.revealUnlocked=false;
   // 스네이크 드래프트 순서 생성
   const n = draft.teamCount, poolSize = students.length - n;
   draft.order = [];
@@ -851,7 +851,10 @@ function draftPick(uid){
   if(draft.pickedBy[uid]!==undefined || draft.leaders.includes(uid)) return;
   draft.pickedBy[uid] = currentTeam();
   draft.turn++;
-  if(draft.turn >= draft.order.length){ draft.phase='reveal'; }
+  if(draft.turn >= draft.order.length){
+    draft.phase='reveal'; draft.revealUnlocked=false;
+    if(lock.pass || lock.shared){ lock.on = true; updateLockBtn(); }
+  }
   renderDraftBoard();
 }
 /* ═══ 학생 공유용 암호화 (이름·학번 보호) ═══ */
@@ -980,10 +983,11 @@ function checkPass(){
   }
 }
 function gateReveal(action){
-  if(!lock.on){ action(); return; }
+  if(draft.revealUnlocked){ action(); return; }              // 이미 검문 통과(이번 드래프트)
+  if(!lock.pass && !lock.shared){ draft.revealUnlocked=true; action(); return; } // 비밀번호 미설정(구버전 복원 등)
   openPassModal({ mode:'verify', title:'팀원 공개',
-    hint:'이름 공개에는 비밀번호가 필요합니다. 올바르게 입력하면 <b>이름 잠금이 해제</b>되고 공개가 진행됩니다.',
-    onSuccess:()=>{ lock.on=false; refreshAnonViews(); action(); } });
+    hint:'이름 공개에는 비밀번호가 필요합니다. 올바르게 입력하면 잠금이 해제되고 공개가 진행됩니다.',
+    onSuccess:()=>{ draft.revealUnlocked=true; lock.on=false; refreshAnonViews(); action(); } });
 }
 function setViewTeam(t){
   draft.viewTeam = (draft.viewTeam===t) ? null : t;
@@ -993,7 +997,7 @@ function setViewTeam(t){
 function revealAll(){ gateReveal(()=>{ students.forEach(s=>draft.revealed.add(s.uid)); renderDraftBoard(); }); }
 function revealOne(uid){ gateReveal(()=>{ draft.revealed.add(uid); renderDraftBoard(); }); }
 function resetDraft(){
-  draft = { teamCount:0, leaders:[], pickedBy:{}, order:[], turn:0, phase:'setup', revealed:new Set(), viewTeam:null };
+  draft = { teamCount:0, leaders:[], pickedBy:{}, order:[], turn:0, phase:'setup', revealed:new Set(), viewTeam:null, revealUnlocked:false };
   const pi = document.getElementById('draftPass'); if(pi) pi.value='';
   const dm = document.getElementById('draftMsg'); if(dm) dm.textContent='';
   document.getElementById('draftSetup').style.display='block';
@@ -1008,7 +1012,7 @@ function renderDraftBoard(){
       <b>${t+1}팀 조장 ${leader.name}</b>&nbsp;차례입니다 — 지도에서 원하는 성향의 점을 클릭하세요</div>
       <div style="font-size:13px;opacity:.75">${draft.turn+1} / ${draft.order.length}번째 지명</div>`;
   } else {
-    banner.innerHTML = `<div class="tb-team">🎉 <b>드래프트 완료!</b>&nbsp;<b>전체공개</b> 버튼 또는 팀 카드의 🔒 번호를 눌러 개별공개${lock.on?' — 공개에는 비밀번호가 필요합니다':''}</div>`;
+    banner.innerHTML = `<div class="tb-team">🎉 <b>드래프트 완료!</b>&nbsp;<b>전체공개</b> 버튼 또는 팀 카드의 🔒 번호를 눌러 개별공개${!draft.revealUnlocked?' — 공개에는 비밀번호가 필요합니다':''}</div>`;
   }
   document.getElementById('revealAllBtn').style.display = draft.phase==='reveal' ? 'inline-block' : 'none';
   // 팀 카드
@@ -1022,7 +1026,7 @@ function renderDraftBoard(){
       ${members.map(m=>{
         const shown = draft.phase==='reveal' && draft.revealed.has(m.uid) && !lock.on;
         if(draft.phase==='reveal' && !shown)
-          return `<span class="member-chip hidden-m" onclick="event.stopPropagation();revealOne(${m.uid})" title="클릭하여 공개${lock.on?' (비밀번호 필요)':''}">🔒 No.${m.no}</span>`;
+          return `<span class="member-chip hidden-m" onclick="event.stopPropagation();revealOne(${m.uid})" title="클릭하여 공개${!draft.revealUnlocked?' (비밀번호 필요)':''}">🔒 No.${m.no}</span>`;
         if(shown)
           return `<span class="member-chip"><span style="width:8px;height:8px;border-radius:50%;background:${TYPE_META[m.type].color};display:inline-block"></span>No.${m.no} ${m.name}</span>`;
         return `<span class="member-chip" style="color:var(--muted)"><span style="width:8px;height:8px;border-radius:50%;background:${TYPE_META[m.type].color};display:inline-block"></span>No.${m.no} · ${m.type==='B'?'밸런스':m.type}</span>`;

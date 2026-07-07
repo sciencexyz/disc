@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DISC 성향 분석 리포트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0F141A; --surface:#161D25; --surface2:#202A35;
+  --ink:#E8EDF2; --muted:#8B99A8; --line:#2A3541;
+  --accent:#3DDC97; --accent-ink:#07231A; --accent-soft:rgba(61,220,151,.13);
+  --d:#FF6B5E; --i:#F5B841; --s:#57C785; --c:#5B9BFF; --b:#B78CFF;
+  --shadow:0 0 0 rgba(0,0,0,0);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans KR',sans-serif;font-size:15px;line-height:1.6}
+button{font-family:inherit;cursor:pointer}
+input,textarea{color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+::selection{background:var(--accent);color:var(--accent-ink)}
+
+/* ── 앱 골격: 좌측 사이드바 + 본문 ── */
+.app{display:flex;min-height:100vh}
+.side{width:210px;flex:none;background:#0B1015;border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:3px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 20px}
+.brand-mark{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-family:'Black Han Sans',sans-serif;font-size:19px;flex:none}
+.brand-name{font-family:'Black Han Sans',sans-serif;font-size:17px;letter-spacing:.02em;line-height:1.2}
+.brand-name small{display:block;font-family:'IBM Plex Sans KR',sans-serif;font-size:10.5px;color:var(--muted);letter-spacing:.14em;font-weight:400}
+.side-foot{margin-top:auto;padding:12px 8px 0;font-size:11px;color:#5A6875;line-height:1.7;border-top:1px solid var(--line)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* ── 사이드 내비 ── */
+nav.tabs{display:flex;flex-direction:column;gap:3px}
+.tab-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;border-radius:0 9px 9px 0;padding:11px 12px;font-size:14px;font-weight:500;color:var(--muted);transition:all .18s}
+.tab-btn:hover{color:var(--ink);background:var(--surface)}
+.tab-btn.active{color:var(--accent);background:var(--surface);border-left-color:var(--accent);font-weight:700}
+.tab-btn .ti{width:18px;text-align:center;flex:none}
+
+/* ── 상단 헤더 ── */
+header{padding:26px 30px 8px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.eyebrow{font-size:11px;letter-spacing:.24em;color:var(--accent);font-weight:700;margin-bottom:6px}
+h1{font-family:'Black Han Sans',sans-serif;font-size:30px;font-weight:400;line-height:1.25;letter-spacing:.01em}
+.subtitle{color:var(--muted);margin-top:5px;font-size:13.5px}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 15px;font-size:13.5px;font-weight:500;transition:all .18s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn.primary:hover{background:#2FC985;color:var(--accent-ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sm{padding:6px 12px;font-size:12.5px;border-radius:8px}
+
+/* ── 본문 분할 레이아웃 ── */
+.layout{padding:18px 30px 50px;display:flex;gap:0;align-items:flex-start}
+#graphArea{flex:1 1 100%;min-width:0;transition:flex .45s cubic-bezier(.4,0,.2,1)}
+body.panel-open #graphArea{flex:7 1 0}
+#detailPanel{flex:0 0 0;width:0;opacity:0;overflow:hidden;transform:translateX(24px);transition:all .45s cubic-bezier(.4,0,.2,1)}
+body.panel-open #detailPanel{flex:3 1 0;width:auto;opacity:1;transform:translateX(0);margin-left:20px}
+.tab-content{display:none}
+.tab-content.active{display:block;animation:fadeUp .35s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── 카드 ── */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+.card h3{font-size:16.5px;font-weight:700;margin-bottom:3px}
+.card .card-sub{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.grid-2{display:grid;grid-template-columns:5fr 7fr;gap:16px;align-items:stretch}
+@media(max-width:960px){.grid-2{grid-template-columns:1fr}}
+
+/* ── 통계 스트립 ── */
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;overflow:hidden}
+@media(max-width:960px){.stat-row{grid-template-columns:repeat(2,1fr)}}
+.stat{padding:16px 18px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:none}
+.stat .label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.stat .dot{width:8px;height:8px;border-radius:2px}
+.stat .value{font-family:'Black Han Sans',sans-serif;font-size:28px;font-weight:400;margin-top:1px;letter-spacing:.02em}
+.stat .value small{font-size:12px;color:var(--muted);font-family:'IBM Plex Sans KR',sans-serif}
+
+/* ── 필터 ── */
+.filter-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.chip-btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 15px;font-size:13px;font-weight:500;color:var(--muted);transition:all .16s}
+.chip-btn:hover{border-color:var(--accent);color:var(--accent)}
+.chip-btn.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+
+/* ── 산점도 ── */
+.scatter-wrap{position:relative}
+.scatter-wrap svg{width:100%;height:auto;display:block}
+.pt{cursor:pointer}
+.pt:hover{filter:brightness(1.25) drop-shadow(0 0 6px rgba(255,255,255,.35))}
+.tooltip{position:fixed;pointer-events:none;background:#F0F4F8;color:#141B22;border-radius:9px;padding:8px 12px;font-size:12.5px;line-height:1.5;opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s;z-index:90;box-shadow:0 8px 24px rgba(0,0,0,.45);max-width:230px}
+.tooltip.show{opacity:1;transform:none}
+.tooltip b{font-size:13.5px}
+.tooltip .tt-type{font-weight:700}
+
+/* ── 상세 패널 ── */
+.panel-inner{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;position:sticky;top:16px;min-width:260px}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.panel-close{border:1px solid var(--line);background:var(--surface2);width:30px;height:30px;border-radius:8px;font-size:14px;color:var(--muted);line-height:1}
+.panel-close:hover{border-color:var(--accent);color:var(--accent)}
+.type-badge{display:inline-flex;align-items:center;gap:7px;border-radius:7px;padding:5px 13px;font-size:13px;font-weight:700;color:#10161D;margin-bottom:9px}
+.panel-name{font-family:'Black Han Sans',sans-serif;font-size:23px;font-weight:400}
+.panel-meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+.gauge{margin:14px 0 4px}
+.gauge .g-labels{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+.g-track{position:relative;height:8px;background:var(--surface2);border-radius:99px}
+.g-mark{position:absolute;top:-3px;width:14px;height:14px;border-radius:50%;border:2.5px solid #10161D;box-shadow:0 0 8px rgba(255,255,255,.25);transform:translateX(-50%)}
+.g-mid{position:absolute;left:50%;top:-2px;width:1px;height:12px;background:var(--line)}
+.fb-card{border-radius:10px;padding:13px 15px;margin-top:11px;font-size:13.5px;border:1px solid var(--line)}
+.fb-card .fb-title{font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.fb-strength{background:rgba(87,199,133,.10);border-color:rgba(87,199,133,.35)}
+.fb-guide{background:rgba(91,155,255,.10);border-color:rgba(91,155,255,.35)}
+.fb-sub{background:var(--surface2)}
+
+/* ── 개별 분석 ── */
+.search-box{width:100%;max-width:420px;border:1px solid var(--line);border-radius:9px;padding:11px 15px;font-size:14px;font-family:inherit;background:var(--surface);margin-bottom:16px;outline:none;transition:border .2s}
+.search-box:focus{border-color:var(--accent)}
+.search-box::placeholder{color:#5A6875}
+.stu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:11px}
+.stu-card{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:14px 16px;cursor:pointer;transition:all .16s}
+.stu-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.stu-card .s-name{font-weight:700;font-size:15.5px}
+.stu-card .s-meta{font-size:12px;color:var(--muted);margin:1px 0 8px}
+.mini-badge{display:inline-block;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:700;color:#10161D}
+
+/* ── 팀 빌딩 ── */
+.setup-grid{display:grid;grid-template-columns:1fr 2fr;gap:16px}
+@media(max-width:960px){.setup-grid{grid-template-columns:1fr}}
+.leader-pool{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.pick-chip{border:1px solid var(--line);background:var(--surface2);border-radius:8px;padding:6px 13px;font-size:13px;color:var(--ink);transition:all .14s}
+.pick-chip:hover{border-color:var(--accent)}
+.pick-chip.picked{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.count-select{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.count-btn{width:42px;height:42px;border-radius:9px;border:1px solid var(--line);background:var(--surface2);font-size:16px;font-weight:700;color:var(--muted)}
+.count-btn.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.turn-banner{background:var(--accent);color:var(--accent-ink);border-radius:11px;padding:13px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap;font-weight:500}
+.turn-banner .tb-team{display:flex;align-items:center;gap:10px;font-size:15px}
+.turn-banner .tb-dot{width:12px;height:12px;border-radius:50%;border:2px solid rgba(0,0,0,.25)}
+.team-boards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:11px;margin-top:14px}
+.team-card{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:13px;border-top:4px solid var(--line)}
+.team-card h4{font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.member-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border-radius:7px;padding:4px 10px;font-size:12.5px;margin:0 5px 5px 0}
+.member-chip.hidden-m{cursor:pointer;background:transparent;border:1px dashed var(--line);color:var(--muted);letter-spacing:.1em}
+.member-chip.hidden-m:hover{border-color:var(--accent);color:var(--accent)}
+.member-chip.leader-m{background:var(--accent);color:var(--accent-ink);font-weight:700}
+
+/* ── 모달 ── */
+.modal-bg{position:fixed;inset:0;background:rgba(5,9,13,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg.show{display:flex;animation:fadeUp .25s ease}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px;max-width:640px;width:100%;max-height:88vh;overflow:auto}
+.modal h3{font-family:'Black Han Sans',sans-serif;font-size:20px;font-weight:400;margin-bottom:6px}
+.modal textarea{width:100%;height:220px;border:1px solid var(--line);border-radius:9px;padding:12px;font-size:12.5px;font-family:ui-monospace,monospace;margin:12px 0;resize:vertical;background:#10161D}
+.hint{font-size:12.5px;color:var(--muted);background:var(--surface2);border-radius:9px;padding:10px 14px;line-height:1.7}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.parse-msg{font-size:13px;margin-top:8px;min-height:20px}
+.parse-msg.err{color:#FF8A7A}.parse-msg.ok{color:var(--accent)}
+
+.chart-box{position:relative;height:290px}
+footer{padding:0 30px 36px;color:#5A6875;font-size:12px}
+
+/* ── 모바일: 사이드바 → 상단 바 ── */
+@media(max-width:820px){
+  .app{flex-direction:column}
+  .side{width:100%;height:auto;position:static;flex-direction:row;align-items:center;padding:12px 16px;gap:8px;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line)}
+  .brand{padding:0 8px 0 0}
+  .brand-name small{display:none}
+  nav.tabs{flex-direction:row;gap:4px}
+  .tab-btn{border-left:none;border-bottom:2px solid transparent;border-radius:8px;padding:8px 11px;white-space:nowrap}
+  .tab-btn.active{border-left:none;border-bottom-color:var(--accent)}
+  .side-foot{display:none}
+  header,.layout{padding-left:18px;padding-right:18px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+<aside class="side">
+  <div class="brand">
+    <span class="brand-mark">D</span>
+    <span class="brand-name">DISC 리포트<small>CLASS INSIGHT</small></span>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="overview"><span class="ti">◧</span>전체 분석</button>
+    <button class="tab-btn" data-tab="group"><span class="ti">⬡</span>모둠별 분석</button>
+    <button class="tab-btn" data-tab="individual"><span class="ti">◎</span>개별 분석</button>
+    <button class="tab-btn" data-tab="draft"><span class="ti">⚑</span>팀원 선택</button>
+  </nav>
+  <div class="side-foot">DISC 자가진단 20문항<br>X = Q11~20 합 − 30<br>Y = Q1~10 합 − 30</div>
+</aside>
+
+<div class="main">
+<header>
+  <div>
+    <div class="eyebrow">CLASS INSIGHT REPORT</div>
+    <h1>우리 반 DISC 성향 분석</h1>
+    <div class="subtitle" id="dataInfo">문항 20개 자가진단 결과를 바탕으로 학생별 성향과 모둠 구성을 분석합니다.</div>
+  </div>
+  <div class="header-actions">
+    <span class="sync-chip" id="syncChip"><span class="sync-dot"></span><span id="syncText">샘플 데이터 표시 중</span></span>
+    <button class="btn" id="refreshBtn" onclick="refreshSheet()" title="시트에서 최신 응답 다시 불러오기">⟳ 새로고침</button>
+    <button class="btn" id="lockBtn" onclick="toggleLock()">🔒 이름 잠금</button>
+    <button class="btn primary" onclick="openSyncModal()">☀ 연결 설정</button>
+    <button class="btn" onclick="openModal()">📋 데이터 입력</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div id="graphArea">
+
+    <!-- 탭 1: 전체 분석 -->
+    <section class="tab-content active" id="tab-overview">
+      <div class="stat-row" id="statRow"></div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>성향 유형 분포</h3>
+          <div class="card-sub">반 전체 D · I · S · C 구성 비율</div>
+          <div class="chart-box"><canvas id="overviewDonut"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>DISC 성향 지도</h3>
+          <div class="card-sub">점 위 숫자는 시트 응답 순서 번호(No.)입니다 · 점을 클릭하면 학생별 맞춤 지도 방안이 열립니다</div>
+          <div class="scatter-wrap" id="scatterOverview"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 탭 2: 모둠별 분석 -->
+    <section class="tab-content" id="tab-group">
+      <div class="filter-row" id="groupFilters"></div>
+      <div class="grid-2">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card" id="groupSummaryCard"></div>
+          <div class="card">
+            <h3 id="groupDonutTitle">성향 비율</h3>
+            <div class="card-sub">선택한 범위의 유형 구성</div>
+            <div class="chart-box" style="height:230px"><canvas id="groupDonut"></canvas></div>
+          </div>
+          <div class="card">
+            <h3>모둠별 유형 구성 비교</h3>
+            <div class="card-sub">모둠 간 D·I·S·C 인원 비교 (누적 막대)</div>
+            <div class="chart-box" style="height:230px"><canvas id="groupBar"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 id="groupScatterTitle">모둠 성향 지도</h3>
+          <div class="card-sub">점을 클릭하면 상세 정보가 열립니다</div>
+          <div class="scatter-wrap" id="scatterGroup"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 탭 3: 개별 분석 -->
+    <section class="tab-content" id="tab-individual">
+      <input class="search-box" id="searchInput" type="text" placeholder="이름 또는 학번으로 검색…">
+      <div class="stu-grid" id="stuGrid"></div>
+    </section>
+
+    <!-- 탭 4: 팀원 선택 -->
+    <section class="tab-content" id="tab-draft">
+      <div id="draftSetup">
+        <div class="setup-grid">
+          <div class="card">
+            <h3>1단계 · 모둠 수 선택</h3>
+            <div class="card-sub">몇 개의 모둠으로 나눌까요?</div>
+            <div class="count-select" id="countSelect"></div>
+          </div>
+          <div class="card">
+            <h3>2단계 · 조장 선택</h3>
+            <div class="card-sub" id="leaderSub">모둠 수만큼 조장을 선택하세요 (선택한 순서 = 모둠 번호)</div>
+            <div class="leader-pool" id="leaderPool"></div>
+            <div style="margin-top:14px">
+              <div style="font-size:13px;font-weight:700;margin-bottom:6px">공개 비밀번호 <span style="color:var(--muted);font-weight:400">(필수)</span></div>
+              <div style="display:flex;gap:8px">
+                <input class="url-input" id="draftPass" type="password" placeholder="드래프트 시작 시 이름 잠금이 켜지고, 이 비밀번호로만 공개할 수 있습니다" autocomplete="new-password" oninput="document.getElementById('draftMsg').textContent=''" style="flex:1">
+                <button type="button" class="btn" style="flex:none;padding:9px 13px" onmousedown="event.preventDefault()" onclick="const p=document.getElementById('draftPass');p.type=p.type==='password'?'text':'password';this.textContent=p.type==='password'?'👁':'🙈'">👁</button>
+              </div>
+              <div class="parse-msg" id="draftMsg"></div>
+            </div>
+            <div style="margin-top:16px;text-align:right">
+              <button class="btn primary" id="startDraftBtn" disabled onclick="startDraft()">드래프트 시작 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="draftBoard" style="display:none">
+        <div class="turn-banner" id="turnBanner"></div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>익명 성향 지도</h3>
+            <div class="card-sub">이름은 숨겨져 있습니다. 원하는 <b>성향</b>의 점을 클릭해 팀원으로 영입하세요. (★ = 조장)</div>
+            <div class="scatter-wrap" id="scatterDraft"></div>
+          </div>
+          <div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+              <button class="btn sm" id="revealAllBtn" style="display:none" onclick="revealAll()">👀 전체공개</button>
+              <button class="btn sm" onclick="resetDraft()">↺ 다시 하기</button>
+            </div>
+            <div class="team-boards" id="teamBoards"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- 오른쪽 상세 패널 -->
+  <aside id="detailPanel"><div class="panel-inner" id="panelInner"></div></aside>
+</div>
+
+<footer>DISC 진단 기준 · X축(사람↔업무) = 11~20번 합계 − 30 · Y축(능동↔신중) = 1~10번 합계 − 30 · 원점 부근(±3)은 밸런스형으로 분류</footer>
+</div><!-- /.main -->
+</div><!-- /.app -->
+
+<div class="tooltip" id="tooltip"></div>
+
+<!-- 데이터 입력 모달 -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3>학생 데이터 입력</h3>
+    <div class="hint">
+      엑셀에서 범위를 복사한 뒤 그대로 붙여넣으세요. 열 순서는 <b>모둠 번호 · 학번 · 이름 · 1번~20번 점수(1~5점)</b>이며, 첫 줄에 제목 행이 있어도 자동으로 건너뜁니다. 쉼표(CSV)로 구분된 데이터도 인식합니다.
+    </div>
+    <textarea id="dataInput" placeholder="예)&#10;1	10101	김하늘	3	4	5	2	3	4	3	5	4	3	4	4	3	5	4	3	4	5	3	4&#10;1	10102	이도윤	…"></textarea>
+    <div class="parse-msg" id="parseMsg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="loadSample()">샘플 데이터 복원</button>
+      <button class="btn" onclick="closeModal()">닫기</button>
+      <button class="btn primary" onclick="applyData()">적용하기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════ 유형 정의 ═══════════ */
+const TYPE_META = {
+  D:{name:'주도형', en:'Dominance', color:'#FF6B5E', quad:'2사분면',
+     strength:'강력한 추진력과 리더십을 갖춘 타고난 리더입니다. 목표가 주어지면 망설임 없이 실행에 옮깁니다.',
+     guide:'성취욕구가 강하므로 도전적인 과제를 주면 좋습니다. 단, 다른 조원의 속도를 기다려주는 소통·배려 교육이 필요합니다.'},
+  I:{name:'사교형', en:'Influence', color:'#F5B841', quad:'1사분면',
+     strength:'긍정적인 에너지와 분위기 메이커. 모둠에 활력을 불어넣고 아이디어 발산에 강합니다.',
+     guide:'칭찬과 인정을 받을 때 최고의 능력을 발휘합니다. 다소 산만해질 수 있으니 과제의 데드라인을 명확히 상기시켜 주세요.'},
+  S:{name:'안정형', en:'Steadiness', color:'#57C785', quad:'4사분면',
+     strength:'배려심 깊은 중재자이자 든든한 서포터. 꾸준함과 협력으로 모둠의 안정을 지킵니다.',
+     guide:'변화나 갈등 상황에 스트레스를 받습니다. 자기주장을 안전하게 펼칠 수 있도록 1:1로 질문해 주면 좋습니다.'},
+  C:{name:'신중형', en:'Conscientiousness', color:'#5B9BFF', quad:'3사분면',
+     strength:'논리적이고 정확한 분석가. 자료 검증과 오류 발견에 탁월한 강점이 있습니다.',
+     guide:'꼼꼼하게 팩트를 체크하는 능력을 칭찬해 주세요. 완벽을 기하다 시작이 늦어질 수 있으니 유연성을 격려해 주면 좋습니다.'},
+  B:{name:'밸런스 마스터', en:'Balanced', color:'#B78CFF', quad:'원점 부근',
+     strength:'🌟 상황에 맞춰 어떤 역할이든 해낼 수 있는 유연함을 가졌습니다.',
+     guide:'모둠의 갈등을 중재하는 핵심 역할을 부여해 주세요. 다양한 역할을 경험하게 하면 잠재력이 크게 자랍니다.'}
+};
+const TYPE_ORDER = ['D','I','S','C','B'];
+
+/* ═══════════ 샘플 데이터 ═══════════ */
+function distribute(sum){ // 합계 sum(10~50)을 1~5점 10문항으로 분배
+  sum = Math.max(10, Math.min(50, sum));
+  const arr = Array(10).fill(1); let rest = sum - 10;
+  let i = 0;
+  while(rest > 0){ if(arr[i%10] < 5){ arr[i%10]++; rest--; } i++; }
+  return arr;
+}
+const SAMPLE_DEF = [
+  [1,10101,'김하늘',12,15],[1,10102,'이도윤',-8,10],[1,10103,'박서연',14,-11],[1,10104,'최민준',-13,-9],
+  [2,10105,'정유나',2,1],[2,10106,'강지호',-16,14],[2,10107,'윤채원',9,8],[2,10108,'임건우',-6,-15],
+  [3,10109,'한소율',16,4],[3,10110,'오시우',-11,17],[3,10111,'서예린',5,-13],[3,10112,'문준서',-14,-4],
+  [4,10113,'조아인',7,12],[4,10114,'배현우',-2,-2],[4,10115,'신다은',11,-7],[4,10116,'황태양',-9,6],
+  [5,10117,'송지안',18,9],[5,10118,'노은찬',-15,-12],[5,10119,'유하린',4,16],[5,10120,'권도현',8,-16],
+  [6,10121,'남주아',-5,13],[6,10122,'백승민',13,2],[6,10123,'홍세아',-1,3],[6,10124,'구민재',-12,-6]
+];
+function sampleRows(){
+  return SAMPLE_DEF.map(([g,id,name,x,y])=>[g,id,name,...distribute(y+30),...distribute(x+30)]);
+}
+
+/* ═══════════ 상태 ═══════════ */
+let students = [];      // {group,id,name,x,y,type,items}
+let charts = {};        // Chart.js 인스턴스
+let currentGroup = 'all';
+let focusedSvg = null;
+
+function typeOf(x,y){
+  if(Math.abs(x)<=3 && Math.abs(y)<=3) return 'B';
+  if(y>=0) return x>=0 ? 'I' : 'D';
+  return x>=0 ? 'S' : 'C';
+}
+function buildStudents(rows){
+  students = rows.map((r,idx)=>{
+    const items = r.slice(3,23).map(Number);
+    const y = items.slice(0,10).reduce((a,b)=>a+b,0)-30;
+    const x = items.slice(10,20).reduce((a,b)=>a+b,0)-30;
+    return {uid:idx, no:idx+1, group:String(r[0]), id:String(r[1]), name:String(r[2]), x, y, type:typeOf(x,y), items};
+  });
+}
+const groupList = ()=>[...new Set(students.map(s=>s.group))].sort((a,b)=>Number(a)-Number(b));
+const countByType = list => TYPE_ORDER.reduce((o,t)=>(o[t]=list.filter(s=>s.type===t).length,o),{});
+
+/* ═══════════ 데이터 입력 ═══════════ */
+function openModal(){ document.getElementById('modalBg').classList.add('show'); }
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); document.getElementById('parseMsg').textContent=''; }
+function loadSample(){
+  buildStudents(sampleRows());
+  rebuildAll('샘플 데이터 24명 · 6개 모둠 (데이터 입력 버튼으로 실제 학급 데이터를 붙여넣을 수 있습니다)');
+  closeModal();
+}
+function applyData(){
+  const raw = document.getElementById('dataInput').value.trim();
+  const msg = document.getElementById('parseMsg');
+  if(!raw){ msg.textContent='붙여넣은 데이터가 없습니다.'; msg.className='parse-msg err'; return; }
+  const rows = [];
+  for(const line of raw.split(/\r?\n/)){
+    if(!line.trim()) continue;
+    const cells = line.includes('\t') ? line.split('\t') : line.split(',');
+    if(cells.length < 23) { // 제목행 또는 불완전 행
+      if(rows.length===0) continue; // 헤더로 간주
+      msg.textContent=`열 개수가 부족한 행이 있습니다: "${line.slice(0,40)}…" (모둠·학번·이름 + 20문항 = 23열 필요)`;
+      msg.className='parse-msg err'; return;
+    }
+    const scores = cells.slice(3,23).map(c=>Number(String(c).trim()));
+    if(scores.some(isNaN)){
+      if(rows.length===0) continue; // 헤더 행 스킵
+      msg.textContent=`점수가 숫자가 아닌 행이 있습니다: "${line.slice(0,40)}…"`;
+      msg.className='parse-msg err'; return;
+    }
+    rows.push(cells.map(c=>String(c).trim()));
+  }
+  if(rows.length===0){ msg.textContent='유효한 데이터 행을 찾지 못했습니다.'; msg.className='parse-msg err'; return; }
+  buildStudents(rows);
+  rebuildAll(`학급 데이터 ${students.length}명 · ${groupList().length}개 모둠 적용됨`);
+  msg.textContent=`✓ ${students.length}명 데이터를 적용했습니다.`; msg.className='parse-msg ok';
+  setTimeout(closeModal, 700);
+}
+
+/* ═══════════ 탭 전환 ═══════════ */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    closePanel();
+  });
+});
+
+/* ═══════════ 차트 (Chart.js) ═══════════ */
+Chart.defaults.font.family = "'Noto Sans KR', sans-serif";
+Chart.defaults.color = '#8B99A8';
+function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+function typeLabels(counts){ return TYPE_ORDER.filter(t=>counts[t]>0); }
+
+function renderDonut(canvasId, key, list){
+  const counts = countByType(list);
+  const labels = typeLabels(counts);
+  destroyChart(key);
+  charts[key] = new Chart(document.getElementById(canvasId), {
+    type:'doughnut',
+    data:{ labels: labels.map(t=>`${t} ${TYPE_META[t].name}`),
+      datasets:[{ data: labels.map(t=>counts[t]),
+        backgroundColor: labels.map(t=>TYPE_META[t].color),
+        borderColor:'#161D25', borderWidth:3, hoverOffset:8 }]},
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'58%',
+      animation:{animateRotate:true, duration:700},
+      plugins:{ legend:{position:'bottom', labels:{usePointStyle:true, pointStyleWidth:10, padding:14, font:{size:12}}},
+        tooltip:{ callbacks:{ label:(c)=>{
+          const total = c.dataset.data.reduce((a,b)=>a+b,0);
+          return ` ${c.raw}명 (${Math.round(c.raw/total*100)}%)`; } } } } }
+  });
+}
+function renderGroupBar(){
+  const groups = groupList();
+  destroyChart('bar');
+  charts.bar = new Chart(document.getElementById('groupBar'), {
+    type:'bar',
+    data:{ labels: groups.map(g=>g+'모둠'),
+      datasets: TYPE_ORDER.map(t=>({
+        label:`${t} ${TYPE_META[t].name}`,
+        data: groups.map(g=>students.filter(s=>s.group===g && s.type===t).length),
+        backgroundColor:TYPE_META[t].color, borderRadius:4, stack:'s' }))},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom', labels:{usePointStyle:true, pointStyleWidth:10, font:{size:11}, padding:10}} },
+      scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:true, ticks:{stepSize:1}, grid:{color:'#242F3A'}} } }
+  });
+}
+
+/* ═══════════ 전체 통계 ═══════════ */
+function renderStats(){
+  const counts = countByType(students);
+  const total = students.length;
+  const row = document.getElementById('statRow');
+  row.innerHTML = `<div class="stat"><div class="label">전체 학생</div><div class="value">${total}<small> 명</small></div></div>` +
+    ['D','I','S','C'].map(t=>`
+    <div class="stat"><div class="label"><span class="dot" style="background:${TYPE_META[t].color}"></span>${t} ${TYPE_META[t].name}</div>
+    <div class="value">${counts[t]}<small> 명 (${total?Math.round(counts[t]/total*100):0}%)</small></div></div>`).join('');
+}
+
+/* ═══════════ 모둠 필터 ═══════════ */
+function renderGroupFilters(){
+  const wrap = document.getElementById('groupFilters');
+  wrap.innerHTML = `<button class="chip-btn ${currentGroup==='all'?'active':''}" data-g="all">전체보기</button>` +
+    groupList().map(g=>`<button class="chip-btn ${currentGroup===g?'active':''}" data-g="${g}">${g}모둠</button>`).join('');
+  wrap.querySelectorAll('.chip-btn').forEach(b=>b.addEventListener('click',()=>{
+    currentGroup = b.dataset.g; renderGroupTab(); closePanel();
+  }));
+}
+/* ── 모둠 밸런스 점수 ──
+   다양성(유형 분포 엔트로피, 밸런스형은 4유형에 0.25씩 기여) 50% + 중심 균형(모둠 평균 좌표가 원점에 가까운 정도) 50% */
+function groupBalance(list){
+  if(!list.length) return null;
+  const share = {D:0,I:0,S:0,C:0};
+  list.forEach(s=>{ if(s.type==='B'){['D','I','S','C'].forEach(t=>share[t]+=0.25);} else share[s.type]+=1; });
+  const n = list.length;
+  let H = 0;
+  ['D','I','S','C'].forEach(t=>{ const p=share[t]/n; if(p>0) H += -p*Math.log(p); });
+  const diversity = H/Math.log(4);
+  const cx = list.reduce((a,s)=>a+s.x,0)/n, cy = list.reduce((a,s)=>a+s.y,0)/n;
+  const center = 1 - Math.min(1, Math.hypot(cx,cy)/20);
+  return { score:Math.round(50*diversity+50*center), diversity:Math.round(diversity*100),
+           center:Math.round(center*100), cx:+cx.toFixed(1), cy:+cy.toFixed(1) };
+}
+function balanceGrade(sc){
+  return sc>=80?['매우 균형','#3DDC97'] : sc>=60?['균형','#57C785'] : sc>=40?['보통','#F5B841'] : ['편중','#FF6B5E'];
+}
+function miniBar(label,val,color){
+  return `<div style="margin-top:7px"><div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)"><span>${label}</span><span style="color:var(--ink);font-weight:700">${val}</span></div>
+  <div style="height:6px;background:var(--surface2);border-radius:99px;margin-top:3px"><div style="width:${val}%;height:100%;background:${color};border-radius:99px"></div></div></div>`;
+}
+function renderGroupSummary(list){
+  const card = document.getElementById('groupSummaryCard');
+  if(currentGroup==='all'){
+    // 전체보기: 모둠별 밸런스 점수 비교
+    const rows = groupList().map(g=>{
+      const b = groupBalance(students.filter(s=>s.group===g));
+      const [grade,color] = balanceGrade(b.score);
+      return `<div onclick="currentGroup='${g}';renderGroupTab();closePanel();" style="display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;cursor:pointer" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">
+        <span style="width:48px;font-size:13px;font-weight:700">${g}모둠</span>
+        <span style="flex:1;height:7px;background:var(--surface2);border-radius:99px"><span style="display:block;width:${b.score}%;height:100%;background:${color};border-radius:99px"></span></span>
+        <span style="font-family:'Black Han Sans',sans-serif;font-size:16px;width:32px;text-align:right">${b.score}</span>
+        <span style="font-size:11px;font-weight:700;color:${color};width:52px;text-align:right">${grade}</span>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<h3>모둠별 밸런스 점수</h3><div class="card-sub">유형 다양성 50% + 중심 균형 50% · 100점 만점 · 모둠을 클릭하면 상세 보기</div>${rows}`;
+    return;
+  }
+  const b = groupBalance(list);
+  const [grade,color] = balanceGrade(b.score);
+  const counts = countByType(list);
+  const ratio = TYPE_ORDER.filter(t=>counts[t]>0)
+    .map(t=>`<span style="color:${TYPE_META[t].color};font-weight:700">${TYPE_META[t].name} ${Math.round(counts[t]/list.length*100)}%</span>`)
+    .join(' <span style="color:var(--muted)">·</span> ');
+  const chips = [...list].sort((a,c)=>a.no-c.no).map(s=>
+    `<span class="member-chip" title="${lock.on?'':s.name}" onclick="event.stopPropagation();openPanelByUid(${s.uid})" style="cursor:pointer">
+      <span style="width:8px;height:8px;border-radius:50%;background:${TYPE_META[s.type].color};display:inline-block"></span>No.${s.no}</span>`).join('');
+  card.innerHTML = `<h3>${currentGroup}모둠 구성 요약</h3>
+    <div class="card-sub">우리 모둠 친구들의 번호(No.) · 번호를 클릭하면 상세 보기</div>
+    <div style="margin-bottom:12px">${chips}</div>
+    <div style="font-size:13px;margin-bottom:4px">${ratio}</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="text-align:center;flex:none">
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:38px;line-height:1;color:${color}">${b.score}</div>
+        <div style="font-size:11px;font-weight:700;color:${color};margin-top:2px">밸런스 · ${grade}</div>
+      </div>
+      <div style="flex:1">
+        ${miniBar('유형 다양성', b.diversity, 'var(--c)')}
+        ${miniBar('중심 균형', b.center, 'var(--accent)')}
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">모둠 평균 좌표 (${b.cx}, ${b.cy}) — 원점에 가까울수록 성향이 고르게 분포합니다</div>
+      </div>
+    </div>`;
+}
+function renderGroupTab(){
+  renderGroupFilters();
+  const list = currentGroup==='all' ? students : students.filter(s=>s.group===currentGroup);
+  const label = currentGroup==='all' ? '전체' : currentGroup+'모둠';
+  document.getElementById('groupDonutTitle').textContent = label+' 성향 비율';
+  document.getElementById('groupScatterTitle').textContent = label+' 성향 지도';
+  renderDonut('groupDonut','gDonut', list);
+  renderScatter(document.getElementById('scatterGroup'), list, {showNo:true, dim: currentGroup==='all'? null : students.filter(s=>s.group!==currentGroup)});
+  renderGroupSummary(list);
+}
+
+/* ═══════════ 개별 분석 ═══════════ */
+function renderIndividual(filter=''){
+  const q = filter.trim().toLowerCase();
+  const sb = document.getElementById('searchInput');
+  sb.placeholder = lock.on ? '번호(No.) 또는 모둠으로 검색… (이름 잠금 중)' : '이름 또는 학번으로 검색…';
+  const list = students.filter(s=>{
+    if(!q) return true;
+    if(lock.on) return String(s.no).includes(q) || s.group.includes(q); // 잠금 중엔 이름·학번 검색 차단
+    return s.name.toLowerCase().includes(q) || s.id.includes(q) || String(s.no).includes(q);
+  });
+  document.getElementById('stuGrid').innerHTML = list.map(s=>`
+    <div class="stu-card" onclick="openPanelByUid(${s.uid})">
+      <div class="s-name">${lock.on ? '학생 No.'+s.no : s.name}</div>
+      <div class="s-meta">${lock.on ? s.group+'모둠 · 좌표 ('+s.x+', '+s.y+')' : 'No.'+s.no+' · '+s.id+' · '+s.group+'모둠'}</div>
+      <span class="mini-badge" style="background:${TYPE_META[s.type].color}">${s.type==='B'?'밸런스':s.type+' '+TYPE_META[s.type].name}</span>
+    </div>`).join('') || '<div style="color:var(--muted)">검색 결과가 없습니다.</div>';
+}
+document.getElementById('searchInput').addEventListener('input', e=>renderIndividual(e.target.value));
+
+/* ═══════════ 산점도 (SVG) ═══════════ */
+const DOM = 26, SIZE = 640;                    // 좌표 도메인 ±26
+const px = v => (v + DOM) / (2*DOM) * SIZE;    // x → 픽셀
+const py = v => SIZE - (v + DOM) / (2*DOM) * SIZE;
+const tooltip = document.getElementById('tooltip');
+
+function renderScatter(container, list, opts={}){
+  const anon = !!opts.anonymous;
+  const dim = opts.dim || [];
+  const quads = [ // [x,y,w,h,color,label,sub]
+    [SIZE/2,0,SIZE/2,SIZE/2, TYPE_META.I.color,'I','사교형'],
+    [0,0,SIZE/2,SIZE/2, TYPE_META.D.color,'D','주도형'],
+    [0,SIZE/2,SIZE/2,SIZE/2, TYPE_META.C.color,'C','신중형'],
+    [SIZE/2,SIZE/2,SIZE/2,SIZE/2, TYPE_META.S.color,'S','안정형']
+  ];
+  let inner = quads.map(q=>`<rect x="${q[0]}" y="${q[1]}" width="${q[2]}" height="${q[3]}" fill="${q[4]}" opacity="0.06"/>`).join('');
+  // 격자
+  for(let v=-20; v<=20; v+=10){
+    inner += `<line x1="${px(v)}" y1="0" x2="${px(v)}" y2="${SIZE}" stroke="#222D38" stroke-width="1"/>`;
+    inner += `<line x1="0" y1="${py(v)}" x2="${SIZE}" y2="${py(v)}" stroke="#222D38" stroke-width="1"/>`;
+  }
+  // 축
+  inner += `<line x1="${px(0)}" y1="0" x2="${px(0)}" y2="${SIZE}" stroke="#3E4E5E" stroke-width="1.5"/>`;
+  inner += `<line x1="0" y1="${py(0)}" x2="${SIZE}" y2="${py(0)}" stroke="#3E4E5E" stroke-width="1.5"/>`;
+  // 밸런스 존
+  inner += `<circle cx="${px(0)}" cy="${py(0)}" r="${(3/(2*DOM))*SIZE}" fill="${TYPE_META.B.color}" opacity="0.10" stroke="${TYPE_META.B.color}" stroke-opacity="0.35" stroke-dasharray="4 4"/>`;
+  // 사분면 라벨
+  const qpos = {I:[SIZE-46,44], D:[30,44], C:[30,SIZE-24], S:[SIZE-46,SIZE-24]};
+  for(const t of ['D','I','S','C']){
+    inner += `<text x="${qpos[t][0]}" y="${qpos[t][1]}" font-family="Black Han Sans,sans-serif" font-size="34" font-weight="700" fill="${TYPE_META[t].color}" opacity="0.5">${t}</text>
+      <text x="${qpos[t][0]-1}" y="${qpos[t][1]+18}" font-size="12" fill="${TYPE_META[t].color}" opacity="0.75">${TYPE_META[t].name}</text>`;
+  }
+  // 축 라벨
+  inner += `<text x="${SIZE-8}" y="${py(0)-8}" text-anchor="end" font-size="12" fill="#8B99A8">사람 지향 →</text>
+    <text x="8" y="${py(0)-8}" font-size="12" fill="#8B99A8">← 업무 지향</text>
+    <text x="${px(0)+8}" y="16" font-size="12" fill="#8B99A8">능동 ↑</text>
+    <text x="${px(0)+8}" y="${SIZE-8}" font-size="12" fill="#8B99A8">신중 ↓</text>`;
+
+  // 겹치는 점 지터 처리
+  const seen = {};
+  const jitter = s => {
+    const key = s.x+','+s.y; seen[key]=(seen[key]||0)+1;
+    const n = seen[key]-1;
+    return n===0 ? [0,0] : [Math.cos(n*2.4)*10*Math.ceil(n/2.6), Math.sin(n*2.4)*10*Math.ceil(n/2.6)];
+  };
+  // 흐리게 표시(모둠 필터 시 나머지)
+  let pts = dim.map(s=>{ const [jx,jy]=jitter(s);
+    return `<circle cx="${px(s.x)+jx}" cy="${py(s.y)+jy}" r="6" fill="#3E4E5E" opacity="0.35"/>`; }).join('');
+
+  pts += list.map(s=>{
+    const [jx,jy] = jitter(s);
+    const cx = px(s.x)+jx, cy = py(s.y)+jy;
+    if(opts.teamView){
+      const isL = draft.leaders.includes(s.uid);
+      const ti = isL ? draft.leaders.indexOf(s.uid) : draft.pickedBy[s.uid];
+      const col = ti===undefined ? '#3E4E5E' : TEAM_COLORS[ti];
+      const star = isL ? `<text x="${cx}" y="${cy-14}" text-anchor="middle" font-size="12" fill="${col}" style="pointer-events:none">★</text>` : '';
+      return `<g class="pt" data-uid="${s.uid}" data-tv="${ti===undefined?'':ti}"><circle cx="${cx}" cy="${cy}" r="14" fill="${col}" opacity="0.16"/><circle cx="${cx}" cy="${cy}" r="9.5" fill="${col}" stroke="#10161D" stroke-width="1.5"/><text x="${cx}" y="${cy+3.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#10161D" style="pointer-events:none">${s.no}</text>${star}</g>`;
+    }
+    if(anon){
+      const isLeader = draft.leaders.includes(s.uid);
+      const picked = draft.pickedBy[s.uid] !== undefined;
+      if(isLeader){
+        const ti = draft.leaders.indexOf(s.uid);
+        return `<g class="pt" data-uid="${s.uid}" data-leader="1"><circle cx="${cx}" cy="${cy}" r="11" fill="${TEAM_COLORS[ti]}" stroke="#10161D" stroke-width="2.5"/>
+          <text x="${cx}" y="${cy+4.5}" text-anchor="middle" font-size="12" fill="#fff">★</text></g>`;
+      }
+      const ring = picked ? `<circle cx="${cx}" cy="${cy}" r="14.5" fill="none" stroke="${TEAM_COLORS[draft.pickedBy[s.uid]]}" stroke-width="3.5"/>` : '';
+      return `<g class="pt" data-uid="${s.uid}" data-anon="1" style="${picked?'opacity:.85':''}">${ring}
+        <circle cx="${cx}" cy="${cy}" r="9.5" fill="${TYPE_META[s.type].color}" stroke="#10161D" stroke-width="1.5"/>
+        <text x="${cx}" y="${cy+3.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#10161D" style="pointer-events:none">${s.no}</text></g>`;
+    }
+    if(opts.showNo){
+      return `<g class="pt" data-uid="${s.uid}"><circle cx="${cx}" cy="${cy}" r="14" fill="${TYPE_META[s.type].color}" opacity="0.16"/><circle cx="${cx}" cy="${cy}" r="9.5" fill="${TYPE_META[s.type].color}" stroke="#10161D" stroke-width="1.5"/><text x="${cx}" y="${cy+3.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#10161D" style="pointer-events:none">${s.no}</text></g>`;
+    }
+    return `<g class="pt" data-uid="${s.uid}"><circle cx="${cx}" cy="${cy}" r="12" fill="${TYPE_META[s.type].color}" opacity="0.18"/><circle cx="${cx}" cy="${cy}" r="6.5" fill="${TYPE_META[s.type].color}" stroke="#10161D" stroke-width="1.5"/></g>`;
+  }).join('');
+
+  container.innerHTML = `<svg viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DISC 산점도">
+    <rect width="${SIZE}" height="${SIZE}" rx="12" fill="#10161D" stroke="#2A3541"/>${inner}${pts}</svg>`;
+  const svg = container.querySelector('svg');
+  svg.dataset.vb = `0 0 ${SIZE} ${SIZE}`;
+
+  svg.querySelectorAll('.pt').forEach(el=>{
+    const s = students.find(st=>st.uid == el.dataset.uid);
+    el.addEventListener('mousemove', ev=>{
+      let html;
+      if(el.dataset.leader) {
+        const ti = draft.leaders.indexOf(s.uid);
+        html = `<b>★ ${s.name}</b><br>${ti+1}팀 조장 · ${TYPE_META[s.type].name}`;
+      } else if(el.dataset.tv!==undefined) {
+        const ti = el.dataset.tv==='' ? null : Number(el.dataset.tv);
+        const leaderMark = draft.leaders.includes(s.uid)? '★ ' : '';
+        html = `<b>${leaderMark}No.${s.no}${lock.on? '' : ' '+s.name}</b><br>${ti===null?'미배정':(ti+1)+'팀'} · <span class="tt-type" style="color:${TYPE_META[s.type].color}">${TYPE_META[s.type].name}</span>`;
+      } else if(el.dataset.anon) {
+        const picked = draft.pickedBy[s.uid]!==undefined;
+        html = `<b>No.${s.no} · 익명</b><br><span class="tt-type" style="color:${TYPE_META[s.type].color}">${s.type==='B'?'':s.type+' '}${TYPE_META[s.type].name}</span> · 좌표 (${s.x}, ${s.y})${picked? `<br>→ ${draft.pickedBy[s.uid]+1}팀 영입 완료`:'<br>클릭하여 영입'}`;
+      } else {
+        html = lock.on
+          ? `<b>No.${s.no}</b> <span style="opacity:.7">${s.group}모둠</span><br><span class="tt-type" style="color:${TYPE_META[s.type].color}">${s.type==='B'?'':s.type+' '}${TYPE_META[s.type].name}</span> · 좌표 (${s.x}, ${s.y})`
+          : `<b>No.${s.no} ${s.name}</b> <span style="opacity:.7">${s.group}모둠 · ${s.id}</span><br><span class="tt-type" style="color:${TYPE_META[s.type].color}">${s.type==='B'?'':s.type+' '}${TYPE_META[s.type].name}</span> · 좌표 (${s.x}, ${s.y})`;
+      }
+      tooltip.innerHTML = html;
+      tooltip.style.left = Math.min(ev.clientX+14, window.innerWidth-250)+'px';
+      tooltip.style.top = (ev.clientY+14)+'px';
+      tooltip.classList.add('show');
+    });
+    el.addEventListener('mouseleave', ()=>tooltip.classList.remove('show'));
+    el.addEventListener('click', ()=>{
+      tooltip.classList.remove('show');
+      if(el.dataset.anon) return draftPick(s.uid);
+      if(el.dataset.leader) return;
+      focusPoint(svg, s);
+      openPanel(s);
+    });
+  });
+  return svg;
+}
+
+/* 뷰박스 애니메이션 (포커스 줌) */
+function animateViewBox(svg, target, dur=450){
+  const from = svg.getAttribute('viewBox').split(' ').map(Number);
+  const t0 = performance.now();
+  const ease = t => 1-Math.pow(1-t,3);
+  function step(now){
+    const p = Math.min(1,(now-t0)/dur), e = ease(p);
+    svg.setAttribute('viewBox', from.map((v,i)=>v+(target[i]-v)*e).join(' '));
+    if(p<1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function focusPoint(svg, s){
+  if(focusedSvg && focusedSvg!==svg) resetFocus();
+  focusedSvg = svg;
+  const span = 300;
+  const cx = Math.max(span/2, Math.min(SIZE-span/2, px(s.x)));
+  const cy = Math.max(span/2, Math.min(SIZE-span/2, py(s.y)));
+  animateViewBox(svg, [cx-span/2, cy-span/2, span, span]);
+}
+function resetFocus(){
+  if(focusedSvg){ animateViewBox(focusedSvg, [0,0,SIZE,SIZE]); focusedSvg = null; }
+}
+
+/* ═══════════ 상세 패널 ═══════════ */
+function axisGauge(label,left,right,val,color){
+  const pct = (val+20)/40*100;
+  return `<div class="gauge">
+    <div class="g-labels"><span>${left}</span><span style="font-weight:700;color:var(--ink)">${label} ${val>0?'+':''}${val}</span><span>${right}</span></div>
+    <div class="g-track"><div class="g-mid"></div><div class="g-mark" style="left:${Math.max(2,Math.min(98,pct))}%;background:${color}"></div></div></div>`;
+}
+function intensityWord(v){ v=Math.abs(v); return v>=14?'매우 뚜렷한':(v>=8?'뚜렷한':'약간의'); }
+function secondaryNote(s){
+  if(s.type==='B') return '';
+  const ax = Math.abs(s.x), ay = Math.abs(s.y);
+  let near=null;
+  if(ax<=6 && ax<ay) near = (s.y>=0) ? (s.x>=0?'D':'I') : (s.x>=0?'C':'S');
+  else if(ay<=6 && ay<ax) near = (s.x>=0) ? (s.y>=0?'S':'I') : (s.y>=0?'C':'D');
+  if(!near) return '';
+  return `<div class="fb-card fb-sub"><div class="fb-title">🔀 보조 성향</div>
+    축 값이 경계(±6 이내)에 가까워 <b style="color:${TYPE_META[near].color}">${near}(${TYPE_META[near].name})</b> 성향도 함께 나타날 수 있습니다. 상황에 따라 두 성향을 오가며 행동할 가능성이 있어요.</div>`;
+}
+function weightedIntro(s){
+  if(s.type==='B') return `X, Y 값이 모두 원점 부근(±3)에 있어 네 성향의 균형이 잡혀 있습니다.`;
+  const main = (Math.abs(s.x)>=Math.abs(s.y))
+    ? `${intensityWord(s.x)} <b>${s.x>=0?'사람 지향':'업무 지향'}</b>`
+    : `${intensityWord(s.y)} <b>${s.y>=0?'능동적':'신중한'}</b>`;
+  return `점수 분포상 ${main} 경향이 가장 두드러집니다.`;
+}
+function openPanelByUid(uid){ const s=students.find(t=>t.uid===uid); if(s) openPanel(s); }
+function openPanel(s){
+  const m = TYPE_META[s.type];
+  document.getElementById('panelInner').innerHTML = `
+    <div class="panel-head">
+      <div>
+        <span class="type-badge" style="background:${m.color}">${s.type==='B'?'🌟 밸런스 마스터':s.type+' · '+m.name} <span style="opacity:.8;font-weight:400">${m.en}</span></span>
+        <div class="panel-name">${lock.on ? '학생 No.'+s.no : s.name}</div>
+        <div class="panel-meta">${lock.on ? s.group+'모둠 · '+m.quad+' ('+s.x+', '+s.y+')' : 'No.'+s.no+' · '+s.id+' · '+s.group+'모둠 · '+m.quad+' ('+s.x+', '+s.y+')'}</div>
+      </div>
+      <button class="panel-close" onclick="closePanel()" aria-label="닫기">✕</button>
+    </div>
+    ${axisGauge('X축','업무 지향','사람 지향',s.x,m.color)}
+    ${axisGauge('Y축','신중','능동',s.y,m.color)}
+    <div style="font-size:13px;color:var(--muted);margin-top:10px">${weightedIntro(s)}</div>
+    <div class="fb-card fb-strength"><div class="fb-title">💪 강점</div>${m.strength}</div>
+    <div class="fb-card fb-guide"><div class="fb-title">🧭 교사를 위한 지도 방안</div>${m.guide}</div>
+    ${secondaryNote(s)}`;
+  document.body.classList.add('panel-open');
+  Object.values(charts).forEach(c=>setTimeout(()=>c.resize(),480));
+}
+function closePanel(){
+  document.body.classList.remove('panel-open');
+  resetFocus();
+  Object.values(charts).forEach(c=>setTimeout(()=>c.resize(),480));
+}
+
+/* ═══════════ 팀원 선택 (드래프트) ═══════════ */
+const TEAM_COLORS = ['#FF6B5E','#5B9BFF','#57C785','#F5B841','#B78CFF','#FF8FB1','#4ECDC4','#C9D64F'];
+let draft = { teamCount:0, leaders:[], pickedBy:{}, order:[], turn:0, phase:'setup', revealed:new Set(), viewTeam:null };
+
+function renderDraftSetup(){
+  const cs = document.getElementById('countSelect');
+  cs.innerHTML = [2,3,4,5,6,7,8].map(n=>`<button class="count-btn ${draft.teamCount===n?'active':''}" onclick="setTeamCount(${n})">${n}</button>`).join('');
+  const pool = document.getElementById('leaderPool');
+  pool.innerHTML = students.map(s=>{
+    const idx = draft.leaders.indexOf(s.uid);
+    return `<button class="pick-chip ${idx>-1?'picked':''}" onclick="toggleLeader(${s.uid})">${idx>-1?(idx+1)+'팀 · ':''}${s.name}</button>`;
+  }).join('');
+  document.getElementById('leaderSub').textContent = draft.teamCount
+    ? `조장 ${draft.leaders.length} / ${draft.teamCount}명 선택됨 (선택 순서 = 팀 번호)`
+    : '먼저 왼쪽에서 모둠 수를 선택하세요';
+  document.getElementById('startDraftBtn').disabled = !(draft.teamCount && draft.leaders.length===draft.teamCount);
+}
+function setTeamCount(n){
+  draft.teamCount = n;
+  if(draft.leaders.length>n) draft.leaders = draft.leaders.slice(0,n);
+  renderDraftSetup();
+}
+function toggleLeader(uid){
+  const i = draft.leaders.indexOf(uid);
+  if(i>-1) draft.leaders.splice(i,1);
+  else if(draft.teamCount && draft.leaders.length<draft.teamCount) draft.leaders.push(uid);
+  renderDraftSetup();
+}
+function startDraft(){
+  const pv = document.getElementById('draftPass').value.trim();
+  const dmsg = document.getElementById('draftMsg');
+  if(!pv && !lock.on){ dmsg.textContent='공개 비밀번호를 먼저 설정해 주세요. 드래프트 결과는 이 비밀번호로만 공개할 수 있습니다.'; dmsg.className='parse-msg err'; return; }
+  dmsg.textContent='';
+  if(pv){ lock.pass = pv; }
+  lock.on = true; updateLockBtn();
+  renderIndividual(document.getElementById('searchInput').value); renderGroupTab();
+  renderScatter(document.getElementById('scatterOverview'), students, {showNo:true});
+  draft.phase='draft'; draft.pickedBy={}; draft.turn=0; draft.revealed=new Set();
+  // 스네이크 드래프트 순서 생성
+  const n = draft.teamCount, poolSize = students.length - n;
+  draft.order = [];
+  for(let r=0; draft.order.length<poolSize; r++){
+    const round = [...Array(n).keys()];
+    if(r%2===1) round.reverse();
+    for(const t of round){ if(draft.order.length<poolSize) draft.order.push(t); }
+  }
+  document.getElementById('draftSetup').style.display='none';
+  document.getElementById('draftBoard').style.display='block';
+  renderDraftBoard();
+}
+function currentTeam(){ return draft.order[draft.turn]; }
+function draftPick(uid){
+  if(draft.phase!=='draft') return;
+  if(draft.pickedBy[uid]!==undefined || draft.leaders.includes(uid)) return;
+  draft.pickedBy[uid] = currentTeam();
+  draft.turn++;
+  if(draft.turn >= draft.order.length){ draft.phase='reveal'; }
+  renderDraftBoard();
+}
+/* ═══ 학생 공유용 암호화 (이름·학번 보호) ═══ */
+function _ks(pass, salt, len){ // 비밀번호+솔트 기반 키스트림
+  let h = 2166136261;
+  const seed = pass + '|' + salt;
+  for(let i=0;i<seed.length;i++){ h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const out = new Uint8Array(len);
+  for(let i=0;i<len;i++){ h ^= (i+1); h = Math.imul(h, 16777619); out[i] = (h>>>8) & 255; }
+  return out;
+}
+function encStr(plain, pass){
+  const salt = Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b=>b.toString(16).padStart(2,'0')).join('');
+  const bytes = new TextEncoder().encode(plain);
+  const key = _ks(pass, salt, bytes.length);
+  const cipher = bytes.map((b,i)=>b ^ key[i]);
+  return salt + '.' + btoa(String.fromCharCode(...cipher));
+}
+function decStr(enc, pass){
+  try{
+    const [salt, b64] = String(enc).split('.');
+    const cipher = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+    const key = _ks(pass, salt, cipher.length);
+    return new TextDecoder().decode(cipher.map((b,i)=>b ^ key[i]));
+  }catch(e){ return null; }
+}
+
+/* 공유용 파일 저장: 이름·학번을 비밀번호로 암호화해 내보내기 */
+function exportShared(){
+  if(!lock.pass){ syncMsg('먼저 이름 잠금을 켜거나 드래프트를 시작해 비밀번호를 설정해 주세요.'); return; }
+  const data = {
+    version:2, shared:true, saved:new Date().toISOString(),
+    check: encStr('DISC-OK', lock.pass),
+    rows: students.map(s=>[s.group, encStr(s.id, lock.pass), encStr(s.name, lock.pass), ...s.items]),
+    draft: { teamCount:draft.teamCount, leaders:draft.leaders, pickedBy:draft.pickedBy,
+             order:draft.order, turn:draft.turn, phase:draft.phase, revealed:[...draft.revealed], viewTeam:null }
+  };
+  const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'class-state.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  syncMsg('✓ class-state.json 저장됨 — 이 파일을 index.html과 같은 위치(깃허브 저장소 등)에 올리면 학생 기기에서 자동으로 불러옵니다.', true);
+}
+
+/* 학생 기기: 같은 경로의 class-state.json 자동 로드 */
+async function tryLoadSharedState(){
+  try{
+    const res = await fetch('class-state.json', {cache:'no-store'});
+    if(!res.ok) return false;
+    const data = await res.json();
+    if(!data.shared || !Array.isArray(data.rows)) return false;
+    buildStudents(data.rows.map(r=>[r[0], '', '', ...r.slice(3)])); // 이름·학번은 일단 비움
+    students.forEach((s,i)=>{ s.encId = data.rows[i][1]; s.encName = data.rows[i][2]; s.name=''; s.id=''; });
+    lock = { pass:'', on:true, shared:true, check:data.check };
+    rebuildAll(`공유 데이터 로드됨 · ${students.length}명 · 이름 잠김(비밀번호로 공개)`);
+    updateLockBtn();
+    if(data.draft && data.draft.phase && data.draft.phase!=='setup'){
+      draft = { ...data.draft, revealed:new Set(data.draft.revealed||[]), viewTeam:null };
+      document.getElementById('draftSetup').style.display='none';
+      document.getElementById('draftBoard').style.display='block';
+      renderDraftBoard();
+    }
+    setSync('on','수업 공유 모드 · 비밀번호를 입력하면 이름이 공개됩니다');
+    return true;
+  }catch(e){ return false; }
+}
+function decryptAll(pass){
+  students.forEach(s=>{ s.name = decStr(s.encName, pass) ?? '?'; s.id = decStr(s.encId, pass) ?? '?'; });
+  lock = { pass:pass, on:false, shared:false };
+  refreshAnonViews();
+}
+
+/* ═══ 전역 이름 잠금 (익명 모드) ═══ */
+let lock = { pass:'', on:false };
+let passMode = null;
+function updateLockBtn(){
+  const b = document.getElementById('lockBtn');
+  b.innerHTML = lock.on ? '🔓 잠금 해제' : '🔒 이름 잠금';
+  b.style.borderColor = lock.on ? 'var(--accent)' : '';
+  b.style.color = lock.on ? 'var(--accent)' : '';
+}
+function refreshAnonViews(){
+  updateLockBtn(); closePanel();
+  renderIndividual(document.getElementById('searchInput').value);
+  renderGroupTab();
+  renderScatter(document.getElementById('scatterOverview'), students, {showNo:true});
+  if(draft.phase!=='setup') renderDraftBoard();
+}
+function toggleLock(){
+  if(!lock.on){
+    openPassModal({ mode:'set', title:'잠금 비밀번호 설정',
+      hint:'이름 잠금을 켜면 개별 분석·툴팁·상세 패널 등 <b>모든 화면에서 이름과 학번이 번호(No.)로만</b> 표시됩니다. 해제할 때 사용할 비밀번호를 정해 주세요.',
+      onSuccess:v=>{ lock.pass=v; lock.on=true; refreshAnonViews(); } });
+  } else {
+    openPassModal({ mode:'verify', title:'잠금 해제', hint:'이름 잠금을 해제하려면 비밀번호를 입력하세요.',
+      onSuccess:()=>{ lock.on=false; refreshAnonViews(); } });
+  }
+}
+function openPassModal(opts){
+  passMode = opts;
+  document.getElementById('passTitle').textContent = opts.title;
+  document.getElementById('passHint').innerHTML = opts.hint;
+  document.getElementById('passModalBg').classList.add('show');
+  const inp = document.getElementById('passInput'); inp.value='';
+  setTimeout(()=>inp.focus(),50);
+  document.getElementById('passMsg').textContent='';
+}
+function closePassModal(){ document.getElementById('passModalBg').classList.remove('show'); passMode=null; }
+function checkPass(){
+  if(!passMode) return;
+  const v = document.getElementById('passInput').value;
+  const msg = document.getElementById('passMsg');
+  if(passMode.mode==='set'){
+    if(!v.trim()){ msg.textContent='비밀번호를 입력해 주세요.'; msg.className='parse-msg err'; return; }
+    const cb = passMode.onSuccess; closePassModal(); cb(v.trim());
+  } else {
+    if(lock.shared){
+      if(decStr(lock.check, v) === 'DISC-OK'){
+        const cb = passMode.onSuccess; closePassModal(); decryptAll(v); if(cb) cb();
+      } else { msg.textContent='비밀번호가 일치하지 않습니다.'; msg.className='parse-msg err'; }
+      return;
+    }
+    if(v === lock.pass){ const cb = passMode.onSuccess; closePassModal(); cb(); }
+    else { msg.textContent='비밀번호가 일치하지 않습니다.'; msg.className='parse-msg err'; }
+  }
+}
+function gateReveal(action){
+  if(!lock.on){ action(); return; }
+  openPassModal({ mode:'verify', title:'팀원 공개',
+    hint:'이름 공개에는 비밀번호가 필요합니다. 올바르게 입력하면 <b>이름 잠금이 해제</b>되고 공개가 진행됩니다.',
+    onSuccess:()=>{ lock.on=false; refreshAnonViews(); action(); } });
+}
+function setViewTeam(t){
+  draft.viewTeam = (draft.viewTeam===t) ? null : t;
+  renderDraftBoard();
+  closePanel();
+}
+function revealAll(){ gateReveal(()=>{ students.forEach(s=>draft.revealed.add(s.uid)); renderDraftBoard(); }); }
+function revealOne(uid){ gateReveal(()=>{ draft.revealed.add(uid); renderDraftBoard(); }); }
+function resetDraft(){
+  draft = { teamCount:0, leaders:[], pickedBy:{}, order:[], turn:0, phase:'setup', revealed:new Set(), viewTeam:null };
+  const pi = document.getElementById('draftPass'); if(pi) pi.value='';
+  const dm = document.getElementById('draftMsg'); if(dm) dm.textContent='';
+  document.getElementById('draftSetup').style.display='block';
+  document.getElementById('draftBoard').style.display='none';
+  renderDraftSetup();
+}
+function renderDraftBoard(){
+  const banner = document.getElementById('turnBanner');
+  if(draft.phase==='draft'){
+    const t = currentTeam(); const leader = students.find(s=>s.uid===draft.leaders[t]);
+    banner.innerHTML = `<div class="tb-team"><span class="tb-dot" style="background:${TEAM_COLORS[t]}"></span>
+      <b>${t+1}팀 조장 ${leader.name}</b>&nbsp;차례입니다 — 지도에서 원하는 성향의 점을 클릭하세요</div>
+      <div style="font-size:13px;opacity:.75">${draft.turn+1} / ${draft.order.length}번째 지명</div>`;
+  } else {
+    banner.innerHTML = `<div class="tb-team">🎉 <b>드래프트 완료!</b>&nbsp;<b>전체공개</b> 버튼 또는 팀 카드의 🔒 번호를 눌러 개별공개${lock.on?' — 공개에는 비밀번호가 필요합니다':''}</div>`;
+  }
+  document.getElementById('revealAllBtn').style.display = draft.phase==='reveal' ? 'inline-block' : 'none';
+  // 팀 카드
+  document.getElementById('teamBoards').innerHTML = [...Array(draft.teamCount).keys()].map(t=>{
+    const leader = students.find(s=>s.uid===draft.leaders[t]);
+    const members = students.filter(s=>draft.pickedBy[s.uid]===t);
+    const sel = draft.phase==='reveal' && draft.viewTeam===t;
+    return `<div class="team-card" onclick="if(draft.phase==='reveal')setViewTeam(${t})" style="border-top-color:${TEAM_COLORS[t]};${draft.phase==='reveal'?'cursor:pointer;':''}${sel?'border-color:var(--accent);':''}">
+      <h4>${t+1}팀 <span style="font-size:12px;color:var(--muted);font-weight:400">${members.length+1}명</span></h4>
+      <span class="member-chip leader-m">★ ${leader.name}</span>
+      ${members.map(m=>{
+        const shown = draft.phase==='reveal' && draft.revealed.has(m.uid) && !lock.on;
+        if(draft.phase==='reveal' && !shown)
+          return `<span class="member-chip hidden-m" onclick="event.stopPropagation();revealOne(${m.uid})" title="클릭하여 공개${lock.on?' (비밀번호 필요)':''}">🔒 No.${m.no}</span>`;
+        if(shown)
+          return `<span class="member-chip"><span style="width:8px;height:8px;border-radius:50%;background:${TYPE_META[m.type].color};display:inline-block"></span>No.${m.no} ${m.name}</span>`;
+        return `<span class="member-chip" style="color:var(--muted)"><span style="width:8px;height:8px;border-radius:50%;background:${TYPE_META[m.type].color};display:inline-block"></span>No.${m.no} · ${m.type==='B'?'밸런스':m.type}</span>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+  const dwrap = document.getElementById('scatterDraft');
+  if(draft.phase==='reveal'){
+    dwrap.parentElement.querySelector('.card-sub').innerHTML = '팀 색으로 표시된 <b>우리 팀 팀원 번호</b>를 확인하세요 · ★ = 조장 · 점 클릭 = 상세 보기';
+    // 팀 필터 칩 (산점도 위)
+    let frow = document.getElementById('teamFilterRow');
+    if(!frow){
+      frow = document.createElement('div');
+      frow.id = 'teamFilterRow'; frow.className = 'filter-row';
+      dwrap.parentElement.insertBefore(frow, dwrap);
+    }
+    frow.style.display = 'flex';
+    frow.innerHTML = `<button class="chip-btn ${draft.viewTeam==null?'active':''}" onclick="setViewTeam(null)">전체</button>` +
+      [...Array(draft.teamCount).keys()].map(t=>
+        `<button class="chip-btn ${draft.viewTeam===t?'active':''}" onclick="setViewTeam(${t})" style="${draft.viewTeam===t?'':'color:'+TEAM_COLORS[t]}">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${TEAM_COLORS[t]};margin-right:6px;vertical-align:1px"></span>${t+1}팀</button>`).join('');
+    const list = (draft.viewTeam==null) ? students
+      : students.filter(s=> draft.leaders[draft.viewTeam]===s.uid || draft.pickedBy[s.uid]===draft.viewTeam);
+    renderScatter(dwrap, list, {teamView:true});
+  } else {
+    const frow = document.getElementById('teamFilterRow');
+    if(frow) frow.style.display = 'none';
+    dwrap.parentElement.querySelector('.card-sub').innerHTML = '이름은 숨겨져 있습니다. 원하는 <b>성향</b>의 점을 클릭해 팀원으로 영입하세요. (★ = 조장)';
+    renderScatter(dwrap, students.filter(s=>!draft.leaders.includes(s.uid)).concat(students.filter(s=>draft.leaders.includes(s.uid))), {anonymous:true});
+  }
+}
+
+/* ═══════════ 전체 리렌더 & 초기화 ═══════════ */
+function rebuildAll(infoText){
+  if(infoText) document.getElementById('dataInfo').textContent = infoText;
+  currentGroup='all';
+  closePanel();
+  renderStats();
+  renderDonut('overviewDonut','oDonut', students);
+  renderScatter(document.getElementById('scatterOverview'), students, {showNo:true});
+  renderGroupTab();
+  renderGroupBar();
+  renderIndividual(document.getElementById('searchInput').value);
+  resetDraft();
+}
+buildStudents(sampleRows());
+rebuildAll('샘플 데이터 24명 · 6개 모둠 — 우측 상단 [데이터 입력]으로 실제 학급 데이터를 붙여넣으세요');
+
+/* ═══════════ 구글 시트 연동 · 백업 ═══════════ */
+// 브라우저 저장 (지원 안 되는 환경에서는 메모리로 대체)
+const store = (()=>{ 
+  try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t');
+    return { get:k=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v), del:k=>localStorage.removeItem(k) };
+  }catch(e){ const m={}; return { get:k=>m[k]??null, set:(k,v)=>m[k]=v, del:k=>delete m[k] }; }
+})();
+
+// 추가 스타일 · 연결 설정 모달 주입
+document.head.insertAdjacentHTML('beforeend', `<style>
+.sync-chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:12.5px;color:var(--muted);box-shadow:var(--shadow)}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#B9C6D2;flex:none}
+.sync-chip.on .sync-dot{background:#4C9A6E}
+.sync-chip.err .sync-dot{background:#FF6B5E}
+.sync-section{margin-top:18px}
+.sync-section .sec-title{font-weight:700;font-size:14px;margin-bottom:8px}
+.url-input{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:13px;font-family:inherit;background:#10161D;outline:none}
+.url-input:focus{border-color:var(--accent)}
+.sync-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.sync-row .btn{flex:none}
+.sync-row .btn.grow{flex:1}
+</style>`);
+
+document.body.insertAdjacentHTML('beforeend', `
+<div class="modal-bg" id="syncModalBg">
+  <div class="modal">
+    <h3>연결 설정</h3>
+    <div class="sync-section">
+      <div class="sec-title">0단계 · 설문 준비</div>
+      <div class="hint">구글 설문지로 DISC 문항 20개(1~5점 척도)와 <b>모둠 번호 · 학번 · 이름</b>을 수집하고, 응답이 쌓이는 구글 시트를 아래에 연결하세요. 응답 시트 열 순서가 달라도 머리글(모둠·학번·이름·문항 번호)을 자동으로 인식합니다.</div>
+    </div>
+    <div class="sync-section">
+      <div class="sec-title">구글 시트 링크</div>
+      <input class="url-input" id="sheetUrl" type="text" placeholder="https://docs.google.com/spreadsheets/d/…">
+      <div class="sync-row">
+        <button class="btn primary grow" id="connectBtn" onclick="connectSheet()">연결하기</button>
+        <button class="btn" onclick="switchToSample()">샘플로 전환</button>
+      </div>
+      <div class="parse-msg" id="syncMsg"></div>
+      <div class="hint" style="margin-top:8px">설문 응답이 쌓이는 구글 시트의 링크(주소창 URL 그대로)를 붙여넣으세요. 시트 공유 설정이 <b>"링크가 있는 모든 사용자 · 뷰어"</b>로 되어 있어야 합니다. 연결 후에는 자동으로 갱신되지 않으니, 새 응답이 들어오면 헤더의 <b>⟳ 새로고침</b> 버튼을 눌러 최신화해 주세요. 링크는 이 브라우저에 저장됩니다.</div>
+    </div>
+    <div class="sync-section">
+      <div class="sec-title">백업 · 복원</div>
+      <div class="sync-row">
+        <button class="btn grow" onclick="saveBackup()">⭳ JSON으로 저장</button>
+        <button class="btn grow primary" onclick="exportShared()">🎒 학생 공유용 저장</button>
+        <button class="btn grow" onclick="document.getElementById('backupFile').click()">⭱ JSON 불러오기</button>
+        <input type="file" id="backupFile" accept=".json" style="display:none" onchange="loadBackup(event)">
+      </div>
+      <div class="hint" style="margin-top:8px"><b>JSON으로 저장</b>: 교사용 백업(이름 그대로 저장 — 학생에게 주지 마세요).<br><b>학생 공유용 저장</b>: 이름·학번을 현재 비밀번호로 <b>암호화</b>한 <code>class-state.json</code>을 만듭니다. 이 파일을 index.html과 같은 위치(깃허브 저장소 등)에 올리면 학생 기기에서 드래프트 완료 상태가 자동으로 뜨고, 파일을 열어봐도 이름을 읽을 수 없습니다. 비밀번호를 입력해야만 이름이 복호화됩니다.</div>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeSyncModal()">닫기</button></div>
+  </div>
+</div>`);
+
+document.body.insertAdjacentHTML('beforeend', `
+<div class="modal-bg" id="passModalBg">
+  <div class="modal" style="max-width:380px">
+    <h3 id="passTitle">비밀번호</h3>
+    <div class="hint" id="passHint"></div>
+    <input class="url-input" id="passInput" type="password" placeholder="비밀번호 입력" style="margin-top:12px" onkeydown="if(event.key==='Enter')checkPass()">
+    <div class="parse-msg" id="passMsg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closePassModal()">취소</button>
+      <button class="btn primary" onclick="checkPass()">확인</button>
+    </div>
+  </div>
+</div>`);
+document.getElementById('passModalBg').addEventListener('click', e=>{ if(e.target.id==='passModalBg') closePassModal(); });
+
+function openSyncModal(){ document.getElementById('syncModalBg').classList.add('show'); }
+function closeSyncModal(){ document.getElementById('syncModalBg').classList.remove('show'); document.getElementById('syncMsg').textContent=''; }
+document.getElementById('syncModalBg').addEventListener('click', e=>{ if(e.target.id==='syncModalBg') closeSyncModal(); });
+document.getElementById('modalBg').addEventListener('click', e=>{ if(e.target.id==='modalBg') closeModal(); });
+
+function setSync(state, text){ // state: on | off | err
+  const chip = document.getElementById('syncChip');
+  chip.className = 'sync-chip' + (state==='on'?' on':state==='err'?' err':'');
+  document.getElementById('syncText').textContent = text;
+}
+function syncMsg(text, ok){ const el=document.getElementById('syncMsg'); el.innerHTML=text; el.className='parse-msg '+(ok?'ok':'err'); el.style.lineHeight='1.7'; }
+
+/* CSV 파서 (따옴표 포함 필드 처리) */
+function parseCSVText(text){
+  const rows=[]; let row=[], cur='', q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){
+      if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') q=true;
+      else if(ch===','){ row.push(cur); cur=''; }
+      else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&text[i+1]==='\n') i++; row.push(cur); rows.push(row); row=[]; cur=''; }
+      else cur+=ch;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+
+/* 시트 URL → ID/gid 추출 (일반 링크 + "웹에 게시" 링크 모두 지원) */
+function extractSheetRef(url){
+  url = String(url).trim();
+  const pub = url.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9_-]+)/); // 웹에 게시 링크
+  const g = url.match(/[#?&]gid=(\d+)/);
+  if(pub) return { pub:true, id:pub[1], gid: g? g[1] : '0' };
+  const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if(!m) return null;
+  return { pub:false, id:m[1], gid: g? g[1] : '0' };
+}
+
+/* 머리글 자동 인식 → [모둠,학번,이름,점수20개] 행으로 변환 */
+function mapSheetRows(rows){
+  if(rows.length<2) throw new Error('시트에 응답 데이터가 없습니다 (머리글 + 1행 이상 필요).');
+  const head = rows[0].map(h=>String(h).trim());
+  const findCol = words => head.findIndex(h=>words.some(w=>h.includes(w)));
+  const tsCol = findCol(['타임스탬프','Timestamp','timestamp']);
+  const gCol  = findCol(['모둠','조 ','반']);
+  const idCol = findCol(['학번','번호']);
+  const nmCol = findCol(['이름','성명']);
+  // 문항 열: 머리글이 1~20 숫자로 시작하는 열
+  const qCols = {};
+  head.forEach((h,i)=>{
+    if([tsCol,gCol,idCol,nmCol].includes(i)) return;
+    const m = h.match(/^\s*(\d{1,2})\s*[번.\).:]?/);
+    if(m){ const n=Number(m[1]); if(n>=1&&n<=20&&qCols[n]===undefined) qCols[n]=i; }
+  });
+  let scoreIdx;
+  if(Object.keys(qCols).length===20){
+    scoreIdx = Array.from({length:20},(_,k)=>qCols[k+1]);
+  } else {
+    // 대안: 메타 열 제외 후 순서대로 20개
+    const rest = head.map((_,i)=>i).filter(i=>![tsCol,gCol,idCol,nmCol].includes(i));
+    if(rest.length<20) throw new Error(`문항 열을 20개 찾지 못했습니다 (인식된 열: ${Object.keys(qCols).length + rest.length>=20? rest.length : Object.keys(qCols).length}개). 머리글에 문항 번호(1~20)가 있는지 확인해 주세요.`);
+    scoreIdx = rest.slice(0,20);
+  }
+  const out=[];
+  rows.slice(1).forEach((r,ri)=>{
+    const scores = scoreIdx.map(i=>{
+      const v = String(r[i]??'').trim().match(/\d+/); // "5점", "5 (매우 그렇다)" 대응
+      return v? Number(v[0]) : NaN;
+    });
+    if(scores.every(isNaN)) return; // 빈 행
+    if(scores.some(isNaN)) throw new Error(`${ri+2}번째 행에 숫자가 아닌 점수가 있습니다.`);
+    out.push([
+      gCol>-1? String(r[gCol]).trim().replace(/모둠|조/g,'')||'미지정' : '미지정',
+      idCol>-1? String(r[idCol]).trim() : String(ri+1),
+      nmCol>-1? String(r[nmCol]).trim() : '학생'+(ri+1),
+      ...scores
+    ]);
+  });
+  if(!out.length) throw new Error('유효한 응답 행이 없습니다.');
+  return out;
+}
+
+async function connectSheet(silent){
+  const url = document.getElementById('sheetUrl').value.trim() || store.get('discSheetUrl') || '';
+  const ref = extractSheetRef(url);
+  if(!ref){ if(!silent) syncMsg('구글 시트 링크 형식이 아닙니다. 주소창 URL을 그대로 붙여넣어 주세요.'); return; }
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true; btn.textContent = '불러오는 중…';
+  const candidates = ref.pub
+    ? [`https://docs.google.com/spreadsheets/d/e/${ref.id}/pub?output=csv&gid=${ref.gid}`,
+       `https://docs.google.com/spreadsheets/d/e/${ref.id}/pub?output=csv`]
+    : [`https://docs.google.com/spreadsheets/d/${ref.id}/gviz/tq?tqx=out:csv&gid=${ref.gid}`,
+       `https://docs.google.com/spreadsheets/d/${ref.id}/export?format=csv&gid=${ref.gid}`];
+  try{
+    let text = null, lastErr = null;
+    for(const u of candidates){
+      try{
+        const res = await fetch(u);
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const t = await res.text();
+        if(/<html/i.test(t)) throw new Error('비공개 시트');
+        text = t; break;
+      }catch(e){ lastErr = e; }
+    }
+    if(text===null) throw new Error(
+      `시트를 불러오지 못했습니다 (${lastErr?.message||'Failed to fetch'}). 순서대로 확인해 보세요.<br>` +
+      `① 이 파일을 <b>다운로드해서 크롬 등 브라우저로 직접</b> 열었는지 (클로드 미리보기 화면에서는 외부 요청이 차단됩니다)<br>` +
+      `② 시트 공유가 <b>"링크가 있는 모든 사용자 · 뷰어"</b>인지<br>` +
+      `③ 그래도 안 되면 시트에서 <b>파일 → 공유 → 웹에 게시 → CSV</b>로 만든 링크를 붙여넣어 보세요 (권한 문제없이 항상 열립니다)`);
+    const mapped = mapSheetRows(parseCSVText(text));
+    buildStudents(mapped);
+    store.set('discSheetUrl', url);
+    const t = new Date().toLocaleTimeString('ko-KR');
+    rebuildAll(`구글 시트 연동 · ${students.length}명 · ${groupList().length}개 모둠`);
+    setSync('on', `시트 연동됨 · ${t} 기준 (새로고침으로 최신화)`);
+    if(!silent){ syncMsg(`✓ ${students.length}명의 응답을 불러왔습니다.`, true); setTimeout(closeSyncModal, 800); }
+  }catch(e){
+    setSync('err', '시트 연결 실패');
+    if(!silent) syncMsg(e.message||'불러오기에 실패했습니다.');
+  }finally{
+    btn.disabled=false; btn.textContent='연결하기';
+  }
+}
+function refreshSheet(){
+  if(store.get('discSheetUrl')){ setSync('off','최신 응답 불러오는 중…'); connectSheet(true); }
+  else openSyncModal();
+}
+function switchToSample(){
+  store.del('discSheetUrl');
+  document.getElementById('sheetUrl').value='';
+  loadSample();
+  setSync('off','샘플 데이터 표시 중');
+  syncMsg('샘플 데이터로 전환했습니다.', true);
+}
+
+/* ── JSON 백업 · 복원 ── */
+function saveBackup(){
+  const data = {
+    version:1, saved:new Date().toISOString(),
+    rows: students.map(s=>[s.group, s.id, s.name, ...s.items]),
+    draft: { teamCount:draft.teamCount, leaders:draft.leaders, pickedBy:draft.pickedBy,
+             order:draft.order, turn:draft.turn, phase:draft.phase, revealed:[...draft.revealed],
+             pass:'', unlocked:false },
+    lock: { pass:lock.pass, on:lock.on }
+  };
+  const blob = new Blob([JSON.stringify(data,null,1)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'DISC_백업_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function loadBackup(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(!Array.isArray(data.rows)) throw new Error('형식이 올바르지 않습니다.');
+      buildStudents(data.rows);
+      if(data.lock){ lock = { pass:data.lock.pass||'', on:!!data.lock.on }; updateLockBtn(); }
+      rebuildAll(`백업 파일 복원 · ${students.length}명 · ${groupList().length}개 모둠`);
+      if(data.draft && data.draft.phase && data.draft.phase!=='setup'){
+        draft = { ...data.draft, revealed:new Set(data.draft.revealed||[]) };
+        document.getElementById('draftSetup').style.display='none';
+        document.getElementById('draftBoard').style.display='block';
+        renderDraftBoard();
+      } else if(data.draft){
+        draft = { ...draft, teamCount:data.draft.teamCount||0, leaders:data.draft.leaders||[] };
+        renderDraftSetup();
+      }
+      setSync('off','백업 데이터 표시 중');
+      syncMsg('✓ 백업을 복원했습니다.', true);
+    }catch(e){ syncMsg('복원 실패: '+e.message); }
+  };
+  reader.readAsText(file);
+  ev.target.value='';
+}
+
+/* ── 시작 시 저장된 시트 자동 연결 ── */
+(async function(){
+  const shared = await tryLoadSharedState();
+  if(shared) return; // 수업 공유 모드가 우선
+  const saved = store.get('discSheetUrl');
+  if(saved){ document.getElementById('sheetUrl').value = saved; connectSheet(true); }
+})();
+
+</script>
+</body>
+</html>

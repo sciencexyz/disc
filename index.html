@@ -172,6 +172,23 @@ footer{padding:0 30px 36px;color:#5A6875;font-size:12px}
   .side-foot{display:none}
   header,.layout{padding-left:18px;padding-right:18px}
 }
+
+/* ── 모둠 재구성 ── */
+.reorg-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.reorg-note{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.reorg-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(218px,1fr));gap:12px;align-items:start}
+.reorg-col{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;min-height:180px;transition:border-color .15s, background .15s}
+.reorg-col.dragover{border-color:var(--accent);background:var(--surface2)}
+.reorg-col h4{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:6px}
+.rc-bar{height:6px;background:var(--surface2);border-radius:99px;margin:2px 0 4px}
+.rc-bar span{display:block;height:100%;border-radius:99px}
+.rc-grade{font-size:11.5px;margin-bottom:10px}
+.drag-card{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:7px 10px;margin-bottom:6px;cursor:grab;font-size:13px}
+.drag-card:active{cursor:grabbing}
+.drag-card.dragging{opacity:.4}
+select.sel{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 12px;font-size:13.5px;font-family:inherit;outline:none}
+#teamStatBox{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:13px}
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 
 </style>
@@ -189,6 +206,7 @@ footer{padding:0 30px 36px;color:#5A6875;font-size:12px}
     <button class="tab-btn" data-tab="group"><span class="ti">⬡</span>모둠별 분석</button>
     <button class="tab-btn" data-tab="individual"><span class="ti">◎</span>개별 분석</button>
     <button class="tab-btn" data-tab="draft"><span class="ti">⚑</span>팀원 선택</button>
+    <button class="tab-btn" data-tab="reorg"><span class="ti">⇄</span>모둠 재구성</button>
   </nav>
   <div class="side-foot">DISC 자가진단 20문항<br>X = Q11~20 합 − 30<br>Y = Q1~10 합 − 30</div>
 </aside>
@@ -305,6 +323,20 @@ footer{padding:0 30px 36px;color:#5A6875;font-size:12px}
           </div>
         </div>
       </div>
+    </section>
+
+
+    <!-- 탭 5: 모둠 재구성 -->
+    <section class="tab-content" id="tab-reorg">
+      <div class="reorg-controls">
+        <select class="sel" id="reorgN"></select>
+        <button class="btn" onclick="autoAssign('hetero')">⇄ 이질집단으로 자동 배치</button>
+        <button class="btn" onclick="autoAssign('homo')">∴ 동질집단으로 자동 배치</button>
+        <button class="btn" onclick="reorgFromDraft()">⭳ 팀 빌딩 결과 불러오기</button>
+        <button class="btn" onclick="initReorg();renderReorg()">↺ 원래 모둠으로 초기화</button>
+      </div>
+      <div class="reorg-note">학생 카드를 드래그해서 다른 팀으로 옮기면 밸런스 점수가 즉시 갱신됩니다 · 이질집단: 다양한 성향이 골고루 섞이도록(밸런스 ↑) · 동질집단: 비슷한 성향끼리 모이도록(밸런스 ↓) · 시뮬레이션이라 시트에는 반영되지 않습니다</div>
+      <div class="reorg-cols" id="reorgBoard"></div>
     </section>
 
   </div>
@@ -943,6 +975,7 @@ function refreshAnonViews(){
   renderGroupTab();
   renderScatter(document.getElementById('scatterOverview'), students, {showNo:true});
   if(draft.phase!=='setup') renderDraftBoard();
+  renderReorg();
 }
 function toggleLock(){
   if(!lock.on){
@@ -1050,13 +1083,139 @@ function renderDraftBoard(){
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${TEAM_COLORS[t]};margin-right:6px;vertical-align:1px"></span>${t+1}팀</button>`).join('');
     const list = (draft.viewTeam==null) ? students
       : students.filter(s=> draft.leaders[draft.viewTeam]===s.uid || draft.pickedBy[s.uid]===draft.viewTeam);
+    let sbox = document.getElementById('teamStatBox');
+    if(!sbox){
+      sbox = document.createElement('div'); sbox.id='teamStatBox';
+      dwrap.parentElement.insertBefore(sbox, dwrap);
+    }
+    if(draft.viewTeam==null){ sbox.style.display='none'; }
+    else {
+      const b = groupBalance(list);
+      const [grade,color] = balanceGrade(b.score);
+      const counts = countByType(list);
+      const ratio = TYPE_ORDER.filter(t=>counts[t]>0)
+        .map(t=>`<span style="color:${TYPE_META[t].color};font-weight:700">${TYPE_META[t].name} ${counts[t]}명</span>`)
+        .join(' <span style="color:var(--muted)">·</span> ');
+      sbox.style.display='block';
+      sbox.innerHTML = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="text-align:center;flex:none">
+          <div style="font-family:'Black Han Sans',sans-serif;font-size:32px;line-height:1;color:${color}">${b.score}</div>
+          <div style="font-size:11px;font-weight:700;color:${color}">밸런스 · ${grade}</div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="margin-bottom:4px"><b>${draft.viewTeam+1}팀</b> · ${list.length}명 — ${ratio}</div>
+          ${miniBar('유형 다양성', b.diversity, 'var(--c)')}
+          ${miniBar('중심 균형', b.center, 'var(--accent)')}
+        </div>
+      </div>`;
+    }
     renderScatter(dwrap, list, {teamView:true});
   } else {
     const frow = document.getElementById('teamFilterRow');
     if(frow) frow.style.display = 'none';
+    const sb2 = document.getElementById('teamStatBox');
+    if(sb2) sb2.style.display = 'none';
     dwrap.parentElement.querySelector('.card-sub').innerHTML = '이름은 숨겨져 있습니다. 원하는 <b>성향</b>의 점을 클릭해 팀원으로 영입하세요. (★ = 조장)';
     renderScatter(dwrap, students.filter(s=>!draft.leaders.includes(s.uid)).concat(students.filter(s=>draft.leaders.includes(s.uid))), {anonymous:true});
   }
+}
+
+/* ═══ 모둠 재구성 (드래그 시뮬레이션) ═══ */
+let reorg = { n:0, teams:[] };
+function initReorg(){ // 원래 모둠 기준으로 초기화
+  const gs = groupList();
+  reorg.n = gs.length || 2;
+  reorg.teams = gs.map(g=>students.filter(s=>s.group===g).map(s=>s.uid));
+  syncReorgN();
+}
+function syncReorgN(){
+  const sel = document.getElementById('reorgN');
+  sel.innerHTML = [2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${reorg.n===n?'selected':''}>${n}팀</option>`).join('');
+}
+document.getElementById('reorgN').addEventListener('change', e=>{ reorg.n = Number(e.target.value); });
+function reorgFromDraft(){
+  if(draft.phase==='setup' || !draft.teamCount){ alertReorg('먼저 팀원 선택 탭에서 드래프트를 진행해 주세요.'); return; }
+  reorg.n = draft.teamCount;
+  reorg.teams = [...Array(draft.teamCount).keys()].map(t=>{
+    const arr = students.filter(s=>draft.pickedBy[s.uid]===t).map(s=>s.uid);
+    arr.unshift(draft.leaders[t]);
+    return arr;
+  });
+  syncReorgN(); renderReorg();
+}
+function alertReorg(msg){
+  const note = document.querySelector('.reorg-note');
+  const prev = note.textContent;
+  note.textContent = '⚠ ' + msg;
+  note.style.color = '#FF8A7A';
+  setTimeout(()=>{ note.textContent = prev; note.style.color=''; }, 3000);
+}
+function autoAssign(mode){
+  const n = reorg.n = Number(document.getElementById('reorgN').value);
+  reorg.teams = Array.from({length:n},()=>[]);
+  if(mode==='hetero'){
+    // 유형별로 순회하며 인원 적고 해당 유형이 적은 팀에 배치 → 유형이 골고루 섞임
+    TYPE_ORDER.forEach(t=>{
+      students.filter(s=>s.type===t).forEach(s=>{
+        let best = 0, bestScore = Infinity;
+        for(let k=0;k<n;k++){
+          const size = reorg.teams[k].length;
+          const same = reorg.teams[k].filter(uid=>students.find(x=>x.uid===uid).type===t).length;
+          const score = size*10 + same;
+          if(score < bestScore){ bestScore = score; best = k; }
+        }
+        reorg.teams[best].push(s.uid);
+      });
+    });
+  } else {
+    // 동질: 유형 순으로 정렬해 순서대로 채움 → 비슷한 성향끼리 모임
+    const ordered = [];
+    TYPE_ORDER.forEach(t=>ordered.push(...students.filter(s=>s.type===t).sort((a,b)=>Math.hypot(a.x,a.y)-Math.hypot(b.x,b.y))));
+    const size = Math.ceil(students.length/n);
+    ordered.forEach((s,i)=>reorg.teams[Math.min(n-1, Math.floor(i/size))].push(s.uid));
+  }
+  renderReorg();
+}
+function moveReorg(uid, toTeam){
+  reorg.teams.forEach(arr=>{ const i=arr.indexOf(uid); if(i>-1) arr.splice(i,1); });
+  reorg.teams[toTeam].push(uid);
+  renderReorg();
+}
+function renderReorg(){
+  const board = document.getElementById('reorgBoard');
+  board.innerHTML = reorg.teams.map((arr,t)=>{
+    const list = arr.map(uid=>students.find(s=>s.uid===uid)).filter(Boolean);
+    const b = groupBalance(list);
+    const [grade,color] = b ? balanceGrade(b.score) : ['비어 있음','#3E4E5E'];
+    const cards = list.map(s=>`
+      <div class="drag-card" draggable="true" data-uid="${s.uid}">
+        <span class="mini-badge" style="background:${TYPE_META[s.type].color}">${s.type==='B'?'밸런스':TYPE_META[s.type].name}</span>
+        <span>${lock.on ? '학생 No.'+s.no : 'No.'+s.no+' '+s.name}</span>
+      </div>`).join('');
+    return `<div class="reorg-col" data-team="${t}">
+      <h4>${t+1}팀 <span style="font-size:12px;color:var(--muted);font-weight:400">${list.length}명</span></h4>
+      <div class="rc-bar"><span style="width:${b?b.score:0}%;background:${color}"></span></div>
+      <div class="rc-grade" style="color:${color}">${b ? grade+' · '+b.score+'점' : '학생을 끌어다 놓으세요'}</div>
+      ${cards}
+    </div>`;
+  }).join('');
+  // 드래그 & 드롭 바인딩
+  board.querySelectorAll('.drag-card').forEach(card=>{
+    card.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/plain', card.dataset.uid);
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', ()=>card.classList.remove('dragging'));
+  });
+  board.querySelectorAll('.reorg-col').forEach(col=>{
+    col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('dragover'); });
+    col.addEventListener('dragleave', ()=>col.classList.remove('dragover'));
+    col.addEventListener('drop', e=>{
+      e.preventDefault(); col.classList.remove('dragover');
+      const uid = Number(e.dataTransfer.getData('text/plain'));
+      moveReorg(uid, Number(col.dataset.team));
+    });
+  });
 }
 
 /* ═══════════ 전체 리렌더 & 초기화 ═══════════ */
@@ -1071,6 +1230,7 @@ function rebuildAll(infoText){
   renderGroupBar();
   renderIndividual(document.getElementById('searchInput').value);
   resetDraft();
+  initReorg(); renderReorg();
 }
 buildStudents(sampleRows());
 rebuildAll('샘플 데이터 24명 · 6개 모둠 — 우측 상단 [데이터 입력]으로 실제 학급 데이터를 붙여넣으세요');
